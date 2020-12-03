@@ -34,7 +34,7 @@ func NewMigrationsGenerator(projectPath string, spec apiSpec) *migrationsGenerat
 }
 
 func (g *migrationsGenerator) Generate() error {
-	err := g.ensureMigrationsDirectoryExists()
+	err := ensureDirectoryExists(path.Join(g.projectPath, migrationsDirectory))
 	if err != nil {
 		return fmt.Errorf("failed to create migrations directory: %w", err)
 	}
@@ -116,7 +116,6 @@ func (g *migrationsGenerator) Generate() error {
 }
 
 func (g *migrationsGenerator) ensureMigrationsDirectoryExists() error {
-	migrationsDirectory := path.Join(g.projectPath, migrationsDirectory)
 	fileStat, err := os.Stat(migrationsDirectory)
 	if err != nil {
 		if !os.IsNotExist(err) {

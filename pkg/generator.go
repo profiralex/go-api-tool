@@ -46,10 +46,20 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("failed to generate migrations: %w", err)
 	}
 
+	err = g.GenerateModels()
+	if err != nil {
+		return fmt.Errorf("failed to generate models: %w", err)
+	}
+
 	return nil
 }
 
 func (g *Generator) GenerateMigrations() error {
 	m := NewMigrationsGenerator(g.projectPath, g.spec)
+	return m.Generate()
+}
+
+func (g *Generator) GenerateModels() error {
+	m := NewModelsGenerator(g.projectPath, g.spec)
 	return m.Generate()
 }
