@@ -82,22 +82,34 @@ endpoints:
 models:
   - name: User
     fields:
+      - { name: Id, type: int64, constraints: [ "primary_key","auto_increment" ] }
+      - { name: Uuid, type: string, constraints: [ "unique" ] }
       - { name: Username, type: string, constraints: [ "unique" ] }
       - { name: Email, type: string, tags: [ "gdpr" ], constraints: [ "unique" ] }
       - { name: Password, type: string, tags: [ "hidden" ] }
+      - { name: CreatedAt, type: timestamp, constraints: [ "default:CURRENT_TIMESTAMP" ] }
+      - { name: UpdatedAt, type: timestamp, constraints: [ "default:CURRENT_TIMESTAMP", "on_update:CURRENT_TIMESTAMP" ] }
 
   - name: Note
     fields:
+      - { name: Id, type: int64, constraints: [ "primary_key","auto_increment" ] }
+      - { name: Uuid, type: string, constraints: [ "unique" ] }
       - { name: UserId, type: int64, constraints: [ "foreign_key:User:Id" ] }
       - { name: Name, type: string, tags: [ "gdpr" ] }
       - { name: Content, type: string, tags: [ "gdpr" ], constraints: [ "type:text" ] }
+      - { name: CreatedAt, type: timestamp, constraints: [ "default:CURRENT_TIMESTAMP" ] }
+      - { name: UpdatedAt, type: timestamp, constraints: [ "default:CURRENT_TIMESTAMP", "on_update:CURRENT_TIMESTAMP" ] }
 
   - name: Task
     fields:
+      - { name: Id, type: int64, constraints: [ "primary_key","auto_increment" ] }
+      - { name: Uuid, type: string, constraints: [ "unique" ] }
       - { name: UserId, type: int64, constraints: [ "foreign_key:User:Id" ] }
       - { name: NoteId, type: int64, constraints: [ "foreign_key:Note:Id" ] }
       - { name: Name, type: string, tags: [ "gdpr" ] }
       - { name: Content, type: string, tags: [ "gdpr" ], constraints: [ "type:text" ] }
       - { name: Done, type: bool, constraints: [ "default:false" ] }
+      - { name: CreatedAt, type: timestamp, constraints: [ "default:CURRENT_TIMESTAMP" ] }
+      - { name: UpdatedAt, type: timestamp, constraints: [ "default:CURRENT_TIMESTAMP", "on_update:CURRENT_TIMESTAMP" ] }
 
 

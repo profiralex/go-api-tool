@@ -5,6 +5,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -19,7 +22,6 @@ type migrationsGenerator struct {
 type apiModelUpdate struct {
 	model          apiModel
 	fieldsToAdd    []apiModelField
-	fieldsToUpdate []apiModelField
 	fieldsToDelete []apiModelField
 }
 
@@ -37,7 +39,11 @@ func (g *migrationsGenerator) Generate() error {
 		return fmt.Errorf("failed to create migrations directory: %w", err)
 	}
 
-	newModels := g.apiSpec.Models
+	newModels, modelsUpdates, deletedModels, err := g.getModelsDiff(g.apiSpec.Models)
+	if err != nil {
+		return fmt.Errorf("failed to parse current models: %w", err)
+	}
+
 	for _, model := range newModels {
 		upSql, err := g.dialect.CreateSql(model)
 		if err != nil {
@@ -54,7 +60,6 @@ func (g *migrationsGenerator) Generate() error {
 		}
 	}
 
-	deletedModels := g.apiSpec.Models
 	for _, model := range deletedModels {
 		upSql, err := g.dialect.DeleteSql(model)
 		if err != nil {
@@ -71,65 +76,39 @@ func (g *migrationsGenerator) Generate() error {
 		}
 	}
 
-	var modelUpdates []apiModelUpdate
-	for _, model := range g.apiSpec.Models {
-		modelUpdates = append(modelUpdates, apiModelUpdate{
-			model:          model,
-			fieldsToAdd:    model.Fields,
-			fieldsToUpdate: model.Fields,
-			fieldsToDelete: model.Fields,
-		})
-	}
-
-	for _, modelUpdate := range modelUpdates {
-		deleteFieldsSqlUp := ""
-		deleteFieldsSqlDown := ""
+	for _, modelUpdate := range modelsUpdates {
 		if len(modelUpdate.fieldsToDelete) > 0 {
-			deleteFieldsSqlUp, err = g.dialect.DeleteFieldsSql(modelUpdate.model, modelUpdate.fieldsToDelete)
+			deleteFieldsSqlUp, err := g.dialect.DeleteFieldsSql(modelUpdate.model, modelUpdate.fieldsToDelete)
 			if err != nil {
 				return fmt.Errorf("failed to generate remove fields up sql for model %s: %w", modelUpdate.model.Name, err)
 			}
 
-			deleteFieldsSqlDown, err = g.dialect.AddFieldsSql(modelUpdate.model, modelUpdate.fieldsToDelete)
+			deleteFieldsSqlDown, err := g.dialect.AddFieldsSql(modelUpdate.model, modelUpdate.fieldsToDelete)
 			if err != nil {
 				return fmt.Errorf("failed to generate remove fields down sql for model %s: %w", modelUpdate.model.Name, err)
 			}
+
+			err = g.createModelMigrationFiles(modelUpdate.model, "update", deleteFieldsSqlUp, deleteFieldsSqlDown)
+			if err != nil {
+				return err
+			}
 		}
 
-		addFieldsSqlUp := ""
-		addFieldsSqlDown := ""
-		if len(modelUpdate.fieldsToDelete) > 0 {
-			addFieldsSqlUp, err = g.dialect.AddFieldsSql(modelUpdate.model, modelUpdate.fieldsToAdd)
+		if len(modelUpdate.fieldsToAdd) > 0 {
+			addFieldsSqlUp, err := g.dialect.AddFieldsSql(modelUpdate.model, modelUpdate.fieldsToAdd)
 			if err != nil {
 				return fmt.Errorf("failed to generate add fields up sql for model %s: %w", modelUpdate.model.Name, err)
 			}
 
-			addFieldsSqlDown, err = g.dialect.DeleteFieldsSql(modelUpdate.model, modelUpdate.fieldsToAdd)
+			addFieldsSqlDown, err := g.dialect.DeleteFieldsSql(modelUpdate.model, modelUpdate.fieldsToAdd)
 			if err != nil {
 				return fmt.Errorf("failed to generate add fields down sql for model %s: %w", modelUpdate.model.Name, err)
 			}
-		}
 
-		modifyFieldsUp := ""
-		modifyFieldsDown := ""
-		if len(modelUpdate.fieldsToDelete) > 0 {
-			modifyFieldsUp, err = g.dialect.UpdateFieldsSql(modelUpdate.model, modelUpdate.fieldsToAdd)
+			err = g.createModelMigrationFiles(modelUpdate.model, "update", addFieldsSqlUp, addFieldsSqlDown)
 			if err != nil {
-				return fmt.Errorf("failed to generate update fields up sql for model %s: %w", modelUpdate.model.Name, err)
+				return err
 			}
-
-			modifyFieldsDown, err = g.dialect.UpdateFieldsSql(modelUpdate.model, modelUpdate.fieldsToAdd)
-			if err != nil {
-				return fmt.Errorf("failed to generate update fields down sql for model %s: %w", modelUpdate.model.Name, err)
-			}
-		}
-
-		finalUpdateFieldsUp := fmt.Sprintf("%s\n\n%s\n\n%s", deleteFieldsSqlUp, addFieldsSqlUp, modifyFieldsUp)
-		finalUpdateFieldsDown := fmt.Sprintf("%s\n\n%s\n\n%s", deleteFieldsSqlDown, addFieldsSqlDown, modifyFieldsDown)
-
-		err = g.createModelMigrationFiles(modelUpdate.model, "update", finalUpdateFieldsUp, finalUpdateFieldsDown)
-		if err != nil {
-			return err
 		}
 	}
 
@@ -158,6 +137,151 @@ func (g *migrationsGenerator) ensureMigrationsDirectoryExists() error {
 	}
 
 	return nil
+}
+
+func (g *migrationsGenerator) getModelsDiff(models []apiModel) ([]apiModel, []apiModelUpdate, []apiModel, error) {
+	currentModels, err := g.parseCurrentModels()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get current models: %w", err)
+	}
+
+	var modelsToCreate []apiModel
+	var modelsToDelete []apiModel
+	var modelsUpdates []apiModelUpdate
+
+	//check for new or changed models
+	for _, model := range models {
+		var found bool
+		var currentModel apiModel
+		for _, m := range currentModels {
+			if m.Name == model.Name {
+				currentModel = m
+				found = true
+			}
+		}
+		if !found {
+			modelsToCreate = append(modelsToCreate, model)
+			continue
+		}
+
+		modelUpdates := apiModelUpdate{model: model}
+
+		//check for new or updated fields
+		for _, field := range model.Fields {
+			if !currentModel.hasField(field.Name) {
+				modelUpdates.fieldsToAdd = append(modelUpdates.fieldsToAdd, field)
+			}
+
+			// check for changed constraints
+		}
+
+		//check for deleted fields
+		for _, currentField := range currentModel.Fields {
+			if !model.hasField(currentField.Name) {
+				modelUpdates.fieldsToDelete = append(modelUpdates.fieldsToDelete, currentField)
+			}
+		}
+
+		if len(modelUpdates.fieldsToAdd) > 0 || len(modelUpdates.fieldsToDelete) > 0 {
+			modelsUpdates = append(modelsUpdates, modelUpdates)
+		}
+	}
+
+	//check for deleted models
+	for _, currentModel := range currentModels {
+		var found bool
+		for _, m := range models {
+			if m.Name == currentModel.Name {
+				found = true
+			}
+		}
+
+		if !found {
+			modelsToDelete = append(modelsToDelete, currentModel)
+		}
+	}
+
+	return modelsToCreate, modelsUpdates, modelsToDelete, nil
+}
+
+func (g *migrationsGenerator) modelChanged(model1 apiModel, model2 apiModel) bool {
+	return false
+}
+
+func (g *migrationsGenerator) parseCurrentModels() ([]apiModel, error) {
+	queries := map[string]string{}
+	var files []string
+
+	migrationsDirectory := path.Join(g.projectPath, migrationsDirectory)
+	err := filepath.Walk(migrationsDirectory, func(path string, info os.FileInfo, err error) error {
+		if !strings.HasSuffix(path, ".up.sql") {
+			return nil
+		}
+
+		_, filename := filepath.Split(path)
+		files = append(files, filename)
+		content, err := ioutil.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("failed to read %s file: %w", path, err)
+		}
+
+		queries[filename] = string(content)
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to read migrations directory: %w", err)
+	}
+
+	sort.Strings(files)
+
+	modelsMap := map[string]apiModel{}
+	for _, file := range files {
+		parts := strings.SplitN(strings.TrimSuffix(file, "_table.up.sql"), "_", 3)
+		op := parts[1]
+		modelName := getModelNameFromSqlTable(parts[2])
+		query := queries[file]
+
+		switch op {
+		case "create":
+			_, ok := modelsMap[modelName]
+			if ok {
+				return nil, fmt.Errorf("model %s for create query %s already exists", modelName, file)
+			}
+
+			model := apiModel{Name: modelName}
+			err = g.dialect.ParseCreateQuery(&model, query)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse update query %s: %w", file, err)
+			}
+			modelsMap[modelName] = model
+		case "update":
+			model, ok := modelsMap[modelName]
+			if !ok {
+				return nil, fmt.Errorf("model %s for update query %s not found", modelName, file)
+			}
+
+			err = g.dialect.ParseUpdateQuery(&model, query)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse update query %s: %w", file, err)
+			}
+			modelsMap[modelName] = model
+		case "delete":
+			_, ok := modelsMap[modelName]
+			if !ok {
+				return nil, fmt.Errorf("model %s for delete query %s not found", modelName, file)
+			}
+			delete(modelsMap, modelName)
+		}
+	}
+
+	var models []apiModel
+	for _, model := range modelsMap {
+		models = append(models, model)
+	}
+
+	return models, nil
 }
 
 func (g *migrationsGenerator) createModelMigrationFiles(model apiModel, migrationOp string, upSql string, downSql string) error {

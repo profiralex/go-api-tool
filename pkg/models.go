@@ -1,6 +1,9 @@
 package pkg
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type apiSpec struct {
 	Endpoints []apiEndpoint `yaml:"endpoints"`
@@ -23,6 +26,29 @@ type apiEndpointBodyField struct {
 type apiModel struct {
 	Name   string          `yaml:"name"`
 	Fields []apiModelField `yaml:"fields"`
+}
+
+func (m *apiModel) getField(name string) (apiModelField, bool) {
+	for _, field := range m.Fields {
+		if field.Name == name {
+			return field, true
+		}
+	}
+
+	return apiModelField{}, false
+}
+
+func (m *apiModel) mustGetField(name string) apiModelField {
+	field, ok := m.getField(name)
+	if !ok {
+		panic(fmt.Sprintf("failed to get field %s from model %s", name, m.Name))
+	}
+	return field
+}
+
+func (m *apiModel) hasField(name string) bool {
+	_, ok := m.getField(name)
+	return ok
 }
 
 type apiModelField struct {
@@ -70,4 +96,9 @@ func (f *apiModelField) getConstraint(name string) (constraint, bool) {
 	}
 
 	return constraint{}, false
+}
+
+func (f *apiModelField) hasConstraint(name string) bool {
+	_, ok := f.getConstraint(name)
+	return ok
 }
