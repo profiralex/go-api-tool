@@ -24,15 +24,18 @@ func toSnakeCase(s string) string {
 }
 
 func toPascalCase(s string) string {
-	var output strings.Builder
 	parts := strings.Split(s, "_")
-	for _, part := range parts {
-		runes := []rune(part)
-		runes[0] = unicode.ToUpper(runes[0])
-		output.Write([]byte(string(runes)))
+	for i, _ := range parts {
+		parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
 	}
+	return strings.Join(parts, "")
+}
 
-	return output.String()
+func toCamelCase(s string) string {
+	if strings.Contains(s, "_") {
+		s = toPascalCase(s)
+	}
+	return strings.ToLower(s[0:1]) + s[1:]
 }
 
 func plural(s string) string {

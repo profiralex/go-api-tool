@@ -111,7 +111,7 @@ func (d *mysqlDialect) getColumnSql(field apiModelField) (string, error) {
 	typeString := field.Type
 
 	// if type:example constraint set type to provided value
-	if c, ok := field.getConstraint("type"); ok {
+	if c, ok := field.GetConstraint("type"); ok {
 		typeString = c.Value1
 	}
 
@@ -126,23 +126,23 @@ func (d *mysqlDialect) getColumnSql(field apiModelField) (string, error) {
 		modifiers = append(modifiers, "NOT NULL")
 	}
 
-	if field.hasConstraint("unique") {
+	if field.HasConstraint("unique") {
 		modifiers = append(modifiers, "UNIQUE")
 	}
 
-	if field.hasConstraint("auto_increment") {
+	if field.HasConstraint("auto_increment") {
 		modifiers = append(modifiers, "AUTO_INCREMENT")
 	}
 
-	if field.hasConstraint("primary_key") {
+	if field.HasConstraint("primary_key") {
 		modifiers = append(modifiers, "PRIMARY KEY")
 	}
 
-	if c, ok := field.getConstraint("default"); ok {
+	if c, ok := field.GetConstraint("default"); ok {
 		modifiers = append(modifiers, fmt.Sprintf("DEFAULT %s", c.Value1))
 	}
 
-	if c, ok := field.getConstraint("on_update"); ok {
+	if c, ok := field.GetConstraint("on_update"); ok {
 		modifiers = append(modifiers, fmt.Sprintf("ON UPDATE %s", c.Value1))
 	}
 

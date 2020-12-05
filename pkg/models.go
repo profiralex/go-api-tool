@@ -66,6 +66,15 @@ type constraint struct {
 	Value3 string
 }
 
+func (f *apiModelField) GetGoType() string {
+	switch f.Type {
+	case "timestamp":
+		return "time.Time"
+	default:
+		return f.Type
+	}
+}
+
 func (f *apiModelField) parseConstraints() {
 	var constraints []constraint
 	for _, rawConstraint := range f.ConstraintsRaw {
@@ -88,7 +97,7 @@ func (f *apiModelField) parseConstraints() {
 	f.Constraints = constraints
 }
 
-func (f *apiModelField) getConstraint(name string) (constraint, bool) {
+func (f *apiModelField) GetConstraint(name string) (constraint, bool) {
 	for _, constraint := range f.Constraints {
 		if constraint.Name == name {
 			return constraint, true
@@ -98,7 +107,7 @@ func (f *apiModelField) getConstraint(name string) (constraint, bool) {
 	return constraint{}, false
 }
 
-func (f *apiModelField) hasConstraint(name string) bool {
-	_, ok := f.getConstraint(name)
+func (f *apiModelField) HasConstraint(name string) bool {
+	_, ok := f.GetConstraint(name)
 	return ok
 }

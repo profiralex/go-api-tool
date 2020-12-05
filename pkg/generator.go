@@ -8,6 +8,8 @@ import (
 
 const ApiSpecFilename = "api.yml"
 
+var genDirectory = "gen"
+
 type Generator struct {
 	projectPath string
 	spec        apiSpec
@@ -41,14 +43,19 @@ func (g *Generator) Init() error {
 }
 
 func (g *Generator) Generate() error {
-	err := g.GenerateMigrations()
+	err := ensureDirectoryExists(path.Join(g.projectPath, genDirectory))
+	if err != nil {
+		return fmt.Errorf("failed to create gen directory: %w", err)
+	}
+
+	err = g.GenerateMigrations()
 	if err != nil {
 		return fmt.Errorf("failed to generate migrations: %w", err)
 	}
 
-	err = g.GenerateModels()
+	err = g.GenerateEntities()
 	if err != nil {
-		return fmt.Errorf("failed to generate models: %w", err)
+		return fmt.Errorf("failed to generate entities: %w", err)
 	}
 
 	return nil
@@ -59,7 +66,7 @@ func (g *Generator) GenerateMigrations() error {
 	return m.Generate()
 }
 
-func (g *Generator) GenerateModels() error {
-	m := NewModelsGenerator(g.projectPath, g.spec)
+func (g *Generator) GenerateEntities() error {
+	m := NewEntitiesGenerator(g.projectPath, g.spec)
 	return m.Generate()
 }
