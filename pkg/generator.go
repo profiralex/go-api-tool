@@ -43,9 +43,9 @@ func (g *Generator) Init() error {
 }
 
 func (g *Generator) Generate() error {
-	err := ensureDirectoryExists(path.Join(g.projectPath, genDirectory))
+	err := g.prepareGenDirectory()
 	if err != nil {
-		return fmt.Errorf("failed to create gen directory: %w", err)
+		return fmt.Errorf("failed to prepare gen directory: %w", err)
 	}
 
 	err = g.GenerateMigrations()
@@ -58,6 +58,31 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("failed to generate entities: %w", err)
 	}
 
+	err = g.GenerateLogs()
+	if err != nil {
+		return fmt.Errorf("failed to generate logs: %w", err)
+	}
+
+	err = g.GenerateServer()
+	if err != nil {
+		return fmt.Errorf("failed to generate server: %w", err)
+	}
+
+	return nil
+}
+
+func (g *Generator) prepareGenDirectory() error {
+	genPath := path.Join(g.projectPath, genDirectory)
+	err := cleanupDirectory(genPath)
+	if err != nil {
+		return fmt.Errorf("failed to cleanup the gen directory: %w", err)
+	}
+
+	err = ensureDirectoryExists(genPath)
+	if err != nil {
+		return fmt.Errorf("failed to create the gen directory: %w", err)
+	}
+
 	return nil
 }
 
@@ -68,5 +93,15 @@ func (g *Generator) GenerateMigrations() error {
 
 func (g *Generator) GenerateEntities() error {
 	m := NewEntitiesGenerator(g.projectPath, g.spec)
+	return m.Generate()
+}
+
+func (g *Generator) GenerateLogs() error {
+	m := NewLogsGenerator(g.projectPath, g.spec)
+	return m.Generate()
+}
+
+func (g *Generator) GenerateServer() error {
+	m := NewServerGenerator(g.projectPath, g.spec)
 	return m.Generate()
 }

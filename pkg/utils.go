@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/gertd/go-pluralize"
+	"io/ioutil"
 	"os"
+	"path"
 	"strings"
 	"unicode"
 )
@@ -80,6 +82,52 @@ func ensureDirectoryExists(path string) error {
 	err = os.Mkdir(path, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create migrations directory: %w", err)
+	}
+
+	return nil
+}
+
+func pathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
+}
+
+func cleanupDirectory(path string) error {
+	ok, err := pathExists(path)
+	if err != nil {
+		return fmt.Errorf("failed to check if path exists: %w", err)
+	}
+
+	if !ok {
+		return nil
+	}
+
+	err = os.RemoveAll(path)
+	if err != nil {
+		return fmt.Errorf("failed to remove all from directory")
+	}
+
+	return nil
+}
+
+func generateFile(filePath string, content []byte) error {
+	dirPath, _ := path.Split(filePath)
+
+	err := ensureDirectoryExists(dirPath)
+	if err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", dirPath, err)
+	}
+
+	err = ioutil.WriteFile(filePath, content, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write %s file: %w", filePath, err)
 	}
 
 	return nil
