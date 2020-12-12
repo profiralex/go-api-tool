@@ -8,13 +8,28 @@ import (
 type apiSpec struct {
 	Endpoints []apiEndpoint `yaml:"endpoints"`
 	Models    []apiModel    `yaml:"models"`
+	Module    string        `yaml:"module"`
 }
 
 type apiEndpoint struct {
 	Path       string                 `yaml:"path"`
+	Name       string                 `yaml:"name"`
+	Auth       bool                   `yaml:"auth"`
 	Method     string                 `yaml:"method"`
 	Response   string                 `yaml:"response"`
 	BodyFields []apiEndpointBodyField `yaml:"body_fields"`
+}
+
+func (e *apiEndpoint) GetURLParams() []string {
+	var params []string
+	for _, part := range strings.Split(e.Path, "/")[1:] {
+		if !strings.Contains(part, "{") {
+			continue
+		}
+		param := strings.ReplaceAll(strings.ReplaceAll(part, "{", ""), "}", "")
+		params = append(params, param)
+	}
+	return params
 }
 
 type apiEndpointBodyField struct {
