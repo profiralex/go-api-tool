@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"text/template"
 	"unicode"
 )
 
@@ -131,4 +132,35 @@ func generateFile(filePath string, content []byte) error {
 	}
 
 	return nil
+}
+
+func copyBoxStatics(rootDir string, files map[string]string) error {
+	for srcBox, destRelativePath := range files {
+		filePath := path.Join(rootDir, destRelativePath)
+		if err := generateFile(filePath, templatesBox.MustBytes(srcBox)); err != nil {
+			return fmt.Errorf("failed to copy %s => %s: %w", srcBox, filePath, err)
+		}
+	}
+	return nil
+}
+
+func getTemplateFuncs(addFuncs ...template.FuncMap) template.FuncMap {
+	funcs := template.FuncMap{
+		"plural":       plural,
+		"singular":     singular,
+		"toCamelCase":  toCamelCase,
+		"toPascalCase": toPascalCase,
+		"toSnakeCase":  toSnakeCase,
+		"join":         func(ss []string) string { return strings.Join(ss, ",") },
+	}
+
+	if len(addFuncs) > 0 {
+		for _, addFuncsMap := range addFuncs {
+			for k, v := range addFuncsMap {
+				funcs[k] = v
+			}
+		}
+	}
+
+	return funcs
 }

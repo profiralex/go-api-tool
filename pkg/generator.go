@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	rice "github.com/GeertJohan/go.rice"
 	"os"
 	"path"
 )
@@ -9,6 +10,8 @@ import (
 const ApiSpecFilename = "api.yml"
 
 var genDirectory = "gen"
+
+var templatesBox = rice.MustFindBox("../templates")
 
 type Generator struct {
 	projectPath string
