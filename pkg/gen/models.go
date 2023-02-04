@@ -1,12 +1,13 @@
-package pkg
+package gen
 
 import (
 	"fmt"
+	"github.com/profiralex/go-api-tool/pkg/gen/api"
 	"strings"
 )
 
 type apiSpec struct {
-	Endpoints []apiEndpoint `yaml:"endpoints"`
+	Endpoints []api.Endpoint `yaml:"endpoints"`
 	Models    []apiModel    `yaml:"models"`
 	Module    string        `yaml:"module"`
 }

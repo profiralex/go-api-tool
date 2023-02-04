@@ -1,31 +1,35 @@
-package pkg
+package gen
 
 import (
 	"fmt"
-	rice "github.com/GeertJohan/go.rice"
+	"github.com/profiralex/go-api-tool/pkg/gen/api"
+	"github.com/profiralex/go-api-tool/pkg/gen/entities"
+	"github.com/profiralex/go-api-tool/pkg/gen/logs"
+	"github.com/profiralex/go-api-tool/pkg/gen/migrations"
+	"github.com/profiralex/go-api-tool/pkg/gen/utils"
 	"os"
-	"path"
+	"path/filepath"
 )
 
 const ApiSpecFilename = "api.yml"
 
 var genDirectory = "gen"
 
-var templatesBox = rice.MustFindBox("../templates")
-
 type Generator struct {
-	projectPath string
-	spec        apiSpec
+	apiGenerator  api.Generator
+	logsGenerator logs.Generator
 }
 
 func NewGenerator(projectPath string) *Generator {
-	return &Generator{
-		projectPath: projectPath,
-	}
+	return &Generator{}
 }
 
 func (g *Generator) Init() error {
-	apiSpecFilepath := path.Join(g.projectPath, ApiSpecFilename)
+	return nil
+}
+
+func (g *Generator) Generate(projectPath string) error {
+	apiSpecFilepath := filepath.Join(projectPath, ApiSpecFilename)
 	fileInfo, err := os.Stat(apiSpecFilepath)
 	if err != nil || fileInfo.IsDir() {
 		return fmt.Errorf("provided path is not a project dir")
@@ -37,15 +41,11 @@ func (g *Generator) Init() error {
 	}
 
 	parser := &yamlSpecParser{}
-	g.spec, err = parser.Parse(f)
+	spec, err = parser.Parse(f)
 	if err != nil {
 		return fmt.Errorf("failed to parse api spec file %w", err)
 	}
 
-	return nil
-}
-
-func (g *Generator) Generate() error {
 	err := g.prepareGenDirectory()
 	if err != nil {
 		return fmt.Errorf("failed to prepare gen directory: %w", err)
@@ -75,13 +75,13 @@ func (g *Generator) Generate() error {
 }
 
 func (g *Generator) prepareGenDirectory() error {
-	genPath := path.Join(g.projectPath, genDirectory)
-	err := cleanupDirectory(genPath)
+	genPath := filepath.Join(g.projectPath, genDirectory)
+	err := utils.CleanupDirectory(genPath)
 	if err != nil {
 		return fmt.Errorf("failed to cleanup the gen directory: %w", err)
 	}
 
-	err = ensureDirectoryExists(genPath)
+	err = utils.EnsureDirectoryExists(genPath)
 	if err != nil {
 		return fmt.Errorf("failed to create the gen directory: %w", err)
 	}
@@ -90,21 +90,21 @@ func (g *Generator) prepareGenDirectory() error {
 }
 
 func (g *Generator) GenerateMigrations() error {
-	m := NewMigrationsGenerator(g.projectPath, g.spec)
+	m := migrations.NewMigrationsGenerator(g.projectPath, g.spec)
 	return m.Generate()
 }
 
 func (g *Generator) GenerateEntities() error {
-	m := NewEntitiesGenerator(g.projectPath, g.spec)
+	m := entities.NewEntitiesGenerator(g.projectPath, g.spec)
 	return m.Generate()
 }
 
 func (g *Generator) GenerateLogs() error {
-	m := NewLogsGenerator(g.projectPath, g.spec)
+	m := logs.NewGenerator(g.projectPath, g.spec)
 	return m.Generate()
 }
 
 func (g *Generator) GenerateServer() error {
-	m := NewServerGenerator(g.projectPath, g.spec)
+	m := api.NewGenerator(g.projectPath, g.spec)
 	return m.Generate()
 }

@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"github.com/profiralex/go-api-tool/pkg"
+	"github.com/profiralex/go-api-tool/pkg/gen"
 	"github.com/profiralex/go-api-tool/pkg/logs"
 	log "github.com/sirupsen/logrus"
 )
@@ -15,7 +15,7 @@ func main() {
 
 	logs.Init(*logLevel)
 
-	generator := pkg.NewGenerator(*projectPath)
+	generator := gen.NewGenerator(*projectPath)
 	err := generator.Init()
 	if err != nil {
 		log.Errorf("failed to read the current setup: %s", err)
